@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>서울 주요지역 실시간 날씨</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+
+        body {
+            /* 서울의 도시적인 느낌을 주는 그라데이션 배경 */
+            background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #333;
+        }
+
+        .weather-container {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(15px);
+            width: 360px;
+            padding: 35px 30px;
+            border-radius: 24px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .header h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        /* 지역 선택 드롭다운 스타일 */
+        .custom-select {
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+        select {
+            appearance: none;
+            width: 100%;
+            padding: 12px 15px;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #2c3e50;
+            background-color: #f1f2f6;
+            border: 2px solid #dfe4ea;
+            border-radius: 12px;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        select:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+
+        .custom-select i {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #7f8c8d;
+            pointer-events: none;
+        }
+
+        .loc-grid {
+            font-size: 0.8rem;
+            color: #95a5a6;
+            margin-bottom: 5px;
+        }
+
+        #time-info {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+            background: #f8f9fa;
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            margin-top: 5px;
+        }
+
+        .main-weather {
+            margin: 25px 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .main-weather.loading {
+            opacity: 0.5;
+        }
+
+        .main-weather i {
+            font-size: 4.5rem;
+            color: #3498db;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 10px rgba(52, 152, 219, 0.2);
+        }
+
+        #temperature {
+            font-size: 3.5rem;
+            font-weight: 700;
+            color: #2c3e50;
+            line-height: 1.1;
+        }
+
+        #weather-desc {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #34495e;
+            margin-top: 5px;
+        }
+
+        .details {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 33%;
+        }
+
+        .detail-item i {
+            font-size: 1.3rem;
+            color: #7f8c8d;
+            margin-bottom: 8px;
+        }
+
+        .detail-item span {
+            font-weight: 700;
+            font-size: 1rem;
+            color: #2c3e50;
+        }
+
+        .detail-item small {
+            font-size: 0.75rem;
+            color: #95a5a6;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="weather-container">
+        <div class="header">
+            <h2>서울 날씨 실황</h2>
+            
+            <div class="custom-select">
+                <select id="region-select">
+                    <option value="60,127">종로구 (광화문/도심)</option>
+                    <option value="61,127" selected>강남구 (강남역/코엑스)</option>
+                    <option value="58,126">영등포구 (여의도)</option>
+                    <option value="59,127">마포구 (홍대/신촌)</option>
+                    <option value="62,126">송파구 (잠실/롯데월드)</option>
+                    <option value="61,125">서초구 (서초/교대)</option>
+                </select>
+                <i class="fas fa-chevron-down"></i>
+            </div>
+            
+            <div class="loc-grid">
+                (기상청 격자: X <span id="grid-x">61</span>, Y <span id="grid-y">127</span>)
+            </div>
+
+            <p id="time-info">업데이트 중...</p>
+        </div>
+        
+        <div class="main-weather" id="weather-display">
+            <i id="weather-icon" class="fas fa-spinner fa-spin"></i>
+            <h1 id="temperature">--°C</h1>
+            <p id="weather-desc">상태 확인 중</p>
+        </div>
+
+        <div class="details">
+            <div class="detail-item">
+                <i class="fas fa-tint"></i>
+                <span id="humidity">--%</span>
+                <small>습도</small>
+            </div>
+            <div class="detail-item">
+                <i class="fas fa-wind"></i>
+                <span id="wind">-- m/s</span>
+                <small>풍속</small>
+            </div>
+            <div class="detail-item">
+                <i class="fas fa-umbrella"></i>
+                <span id="rain">-- mm</span>
+                <small>1시간 강수량</small>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_KEY = '93e350048468aa2838258d673b9c79fa9370a38e823c47978b200a8b071cc397';
+
+        // 시간 계산 함수 (매시 40분 기준)
+        function getBaseDateTime() {
+            const now = new Date();
+            let year = now.getFullYear();
+            let month = now.getMonth() + 1;
+            let date = now.getDate();
+            let hours = now.getHours();
+            let minutes = now.getMinutes();
+
+            if (minutes < 40) {
+                hours = hours - 1;
+                if (hours < 0) {
+                    hours = 23;
+                    now.setDate(now.getDate() - 1);
+                    year = now.getFullYear();
+                    month = now.getMonth() + 1;
+                    date = now.getDate();
+                }
+            }
+
+            const baseDate = `${year}${String(month).padStart(2, '0')}${String(date).padStart(2, '0')}`;
+            const baseTime = `${String(hours).padStart(2, '0')}00`; 
+
+            return { baseDate, baseTime, formattedTime: `${month}월 ${date}일 ${hours}시 실황` };
+        }
+
+        // 강수형태 코드 변환
+        function getWeatherStatus(ptyCode) {
+            const status = {
+                '0': { desc: '맑음/흐림', icon: 'fa-sun', color: '#f39c12' },
+                '1': { desc: '비', icon: 'fa-cloud-rain', color: '#3498db' },
+                '2': { desc: '비/눈', icon: 'fa-cloud-meatball', color: '#95a5a6' },
+                '3': { desc: '눈', icon: 'fa-snowflake', color: '#bdc3c7' },
+                '5': { desc: '빗방울', icon: 'fa-cloud-showers-heavy', color: '#34495e' },
+                '6': { desc: '빗방울/눈날림', icon: 'fa-smog', color: '#7f8c8d' },
+                '7': { desc: '눈날림', icon: 'fa-wind', color: '#ecf0f1' }
+            };
+            return status[ptyCode] || { desc: '상태 알 수 없음', icon: 'fa-cloud', color: '#95a5a6' };
+        }
+
+        // 날씨 데이터 가져오기
+        async function fetchWeather(nx, ny) {
+            // UI를 로딩 상태로 변경
+            const weatherDisplay = document.getElementById('weather-display');
+            weatherDisplay.classList.add('loading');
+            
+            document.getElementById('grid-x').innerText = nx;
+            document.getElementById('grid-y').innerText = ny;
+
+            const { baseDate, baseTime, formattedTime } = getBaseDateTime();
+            
+            // API 호출 URL 구성
+            const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst?serviceKey=${API_KEY}&pageNo=1&numOfRows=1000&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('네트워크 연결 불안정');
+
+                const data = await response.json();
+                
+                if (data.response.header.resultCode !== '00') {
+                    throw new Error(data.response.header.resultMsg);
+                }
+
+                const items = data.response.body.items.item;
+
+                let temperature = '';
+                let humidity = '';
+                let wind = '';
+                let rain = '';
+                let ptyCode = '0';
+
+                // 데이터 분류
+                items.forEach(item => {
+                    if (item.category === 'T1H') temperature = item.obsrValue;
+                    if (item.category === 'REH') humidity = item.obsrValue;
+                    if (item.category === 'WSD') wind = item.obsrValue;
+                    if (item.category === 'RN1') rain = item.obsrValue;
+                    if (item.category === 'PTY') ptyCode = item.obsrValue;
+                });
+
+                const weatherInfo = getWeatherStatus(ptyCode);
+
+                // UI 업데이트
+                document.getElementById('time-info').innerText = formattedTime;
+                document.getElementById('temperature').innerText = `${temperature}°C`;
+                document.getElementById('humidity').innerText = `${humidity}%`;
+                document.getElementById('wind').innerText = `${wind} m/s`;
+                document.getElementById('rain').innerText = `${rain} mm`;
+                document.getElementById('weather-desc').innerText = weatherInfo.desc;
+                
+                const iconElement = document.getElementById('weather-icon');
+                iconElement.className = `fas ${weatherInfo.icon}`;
+                iconElement.style.color = weatherInfo.color;
+
+            } catch (error) {
+                console.error('날씨 데이터 로드 실패:', error);
+                document.getElementById('time-info').innerText = '데이터 로드 실패';
+                document.getElementById('weather-icon').className = 'fas fa-exclamation-triangle';
+                document.getElementById('weather-icon').style.color = '#e74c3c';
+                document.getElementById('weather-desc').innerText = 'API 응답 오류';
+                document.getElementById('temperature').innerText = '--°C';
+            } finally {
+                // 로딩 애니메이션 종료
+                setTimeout(() => {
+                    weatherDisplay.classList.remove('loading');
+                }, 300);
+            }
+        }
+
+        // 드롭다운 변경 이벤트 리스너
+        document.getElementById('region-select').addEventListener('change', function(e) {
+            const [nx, ny] = e.target.value.split(',');
+            fetchWeather(nx, ny);
+        });
+
+        // 초기 로딩 시 기본 설정값(강남구)으로 호출
+        window.addEventListener('DOMContentLoaded', () => {
+            const selectElement = document.getElementById('region-select');
+            const [nx, ny] = selectElement.value.split(',');
+            fetchWeather(nx, ny);
+        });
+    </script>
+</body>
+</html>
